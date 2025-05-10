@@ -3,6 +3,7 @@
 #include "matriz.h"
 #include <pthread.h>
 #include <math.h>
+#include <omp.h>
 
 matriz_t *matriz_criar(int linhas, int colunas)
 {
@@ -88,26 +89,23 @@ void *matriz_multiplicar_paralelo_transposta(void *args) {
    pthread_exit(NULL);
 }
 
-matriz_t *matriz_multiplicar_openmp(matriz_t *A, matriz_t *B) {
-   int i, j, k;
+void *matriz_multiplicar_openmp(thread_params *args) {
+   int j, k;
    double sum;
-   matriz_t *m = matriz_criar(A->linhas, B->colunas);
+   thread_params *parametros = (thread_params *) args;
+   matriz_t *m = matriz_criar(parametros->A->linhas, parametros->A->colunas);
    
-   #pragma omp parallel for schedule(runtime)
-   {
-      printf("Thread %d running\n", omp_get_thread_num());
-      for (i = 0; i < m->linhas; i++) {
-         for (j = 0; j < m->colunas; j++) {
-            sum = 0.0;
-            for (k = 0; k < m->colunas; k++) {
-               sum += A->dados[i][k] * B->dados[k][j];
-            }
-            m->dados[i][j] = sum;
-         }
-      }
-   }
-
-   return m;
+   omp_set_num_threads(parametros->num_threads);
+   #pragma omp parallel for private(j, k, sum)
+   for (int i = 0; i < parametros->D->linhas; i++) {
+    for (int j = 0; j < parametros->D->colunas; j++) {
+        double sum = 0.0;
+        for (int k = 0; k < parametros->A->colunas; k++) {
+            sum += parametros->A->dados[i][k] * parametros->B->dados[j][k];
+        }
+        parametros->D->dados[i][j] += sum;
+    }
+}
 }
 
 matriz_t *matriz_multiplicar(matriz_t *A, matriz_t *B)

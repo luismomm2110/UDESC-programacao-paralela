@@ -1,9 +1,9 @@
 #!/bin/bash
 
 NUM_RUNS=10
-MATRIX_SIZE=1500
+MATRIX_SIZE=1000
 MODE=1
-OUTPUT_FILE="results_1500_paralelo_transposta.csv"
+OUTPUT_FILE="results_1000_open_mp_transposta.csv"
 
 # Create/clear the CSV file with header
 echo "num_threads,run,real_time" > "$OUTPUT_FILE"

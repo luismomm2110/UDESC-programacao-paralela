@@ -14,7 +14,6 @@ int main(int argc, char **argv)
     matriz_t *C = NULL;
     matriz_t *C_sequencial = NULL;
     matriz_t *D = NULL;
-    matriz_t *B_transposta = NULL;
     matriz_t *D_sequencial = NULL;
 
     if ((argc != 4)) {
@@ -28,22 +27,22 @@ int main(int argc, char **argv)
 
     A = matriz_criar(linhas, colunas); 
     B = matriz_criar(linhas, colunas); 
+    D =  matriz_criar(linhas, colunas);
     matriz_preencher_rand(B);
     matriz_preencher_rand(A);
-    B_transposta = matriz_criar(colunas, linhas);
-    B_transposta = matriz_transpor(B);
 
 	thread_params *parametros = NULL;
-	pthread_t *threads = NULL;
 	parametros = (thread_params*) malloc(sizeof(thread_params) * num_threads);
-	threads = (pthread_t*) malloc(sizeof(pthread_t) * num_threads);
+    parametros->A = A;
+    parametros->B = B;
+    parametros->D = D;
+    parametros->num_threads = num_threads;
 	
     C_sequencial  = matriz_somar(A, B);
     C = matriz_criar(linhas, colunas); 
     D = matriz_criar(linhas, colunas);
     D_sequencial = matriz_criar(linhas, colunas);
-    D_sequencial = matriz_multiplicar(A, B);
-    D = matriz_multiplicar_openmp(A, B);
+    matriz_multiplicar_openmp(parametros);
 
     if (!matrizes_iguais(D, D_sequencial)) { fprintf(stderr, "Error: Matrices are not equal!\n");
          exit(EXIT_FAILURE);

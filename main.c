@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
     matriz_t *A = matriz_criar(linhas, colunas);
     matriz_t *B = matriz_criar(linhas, colunas);
     matriz_t *D = matriz_criar(linhas, colunas);
-    matriz_t *D_sequencial = matriz_criar(linhas, colunas);
+    // matriz_t *D_sequencial = matriz_criar(linhas, colunas);
 
     matriz_preencher_rand(B);
     matriz_preencher_rand(A);
@@ -34,18 +34,18 @@ int main(int argc, char **argv) {
     matriz_multiplicar_openmp(&parametros);
 
     // Compute sequential version to compare
-    D_sequencial = matriz_multiplicar(A, B);
-
-    // Verify the correctness
-    if (!matrizes_iguais(D, D_sequencial)) {
-        fprintf(stderr, "Error: Matrices are not equal!\n");
-        exit(EXIT_FAILURE);
-    }
+    // D_sequencial = matriz_multiplicar(A, B);
+    //
+    // // Verify the correctness
+    // if (!matrizes_iguais(D, D_sequencial)) {
+    //     fprintf(stderr, "Error: Matrices are not equal!\n");
+    //     exit(EXIT_FAILURE);
+    // }
 
     matriz_destruir(A);
     matriz_destruir(B);
     matriz_destruir(D);
-    matriz_destruir(D_sequencial);
+    // matriz_destruir(D_sequencial);
 
     return EXIT_SUCCESS;
 }

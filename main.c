@@ -3,55 +3,47 @@
 #include "matriz.h"
 #include <pthread.h>
 #include <assert.h>
+#include <omp.h>
 
-int main(int argc, char **argv)
-{
-    int linhas = 0;
-    int colunas = 0;
-    int num_threads = 0;
-    matriz_t *A = NULL;
-    matriz_t *B = NULL;
-    matriz_t *C = NULL;
-    matriz_t *C_sequencial = NULL;
-    matriz_t *D = NULL;
-    matriz_t *D_sequencial = NULL;
-
+int main(int argc, char **argv) {
     if ((argc != 4)) {
         printf("Uso: %s <N> <NUM_THREADS> <PARALLEL_TYPE>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-    
-    linhas = atoi(argv[1]);
-    num_threads = atoi(argv[2]);
-    colunas = linhas; 
 
-    A = matriz_criar(linhas, colunas); 
-    B = matriz_criar(linhas, colunas); 
-    D =  matriz_criar(linhas, colunas);
+    int linhas = atoi(argv[1]);
+    int num_threads = atoi(argv[2]);
+    int colunas = linhas;
+
+    matriz_t *A = matriz_criar(linhas, colunas);
+    matriz_t *B = matriz_criar(linhas, colunas);
+    matriz_t *D = matriz_criar(linhas, colunas);
+    matriz_t *D_sequencial = matriz_criar(linhas, colunas);
+
     matriz_preencher_rand(B);
     matriz_preencher_rand(A);
 
-	thread_params *parametros = NULL;
-	parametros = (thread_params*) malloc(sizeof(thread_params) * num_threads);
-    parametros->A = A;
-    parametros->B = B;
-    parametros->D = D;
-    parametros->num_threads = num_threads;
-	
-    C_sequencial  = matriz_somar(A, B);
-    C = matriz_criar(linhas, colunas); 
-    D = matriz_criar(linhas, colunas);
-    D_sequencial = matriz_criar(linhas, colunas);
-    matriz_multiplicar_openmp(parametros);
+    // Properly initialize thread_params
+    thread_params parametros;
+    parametros.A = A;
+    parametros.B = B;
+    parametros.D = D;
+    parametros.num_threads = num_threads;
 
-    if (!matrizes_iguais(D, D_sequencial)) { fprintf(stderr, "Error: Matrices are not equal!\n");
-         exit(EXIT_FAILURE);
+    // Compute OpenMP version
+    matriz_multiplicar_openmp(&parametros);
+
+    // Compute sequential version to compare
+    D_sequencial = matriz_multiplicar(A, B);
+
+    // Verify the correctness
+    if (!matrizes_iguais(D, D_sequencial)) {
+        fprintf(stderr, "Error: Matrices are not equal!\n");
+        exit(EXIT_FAILURE);
     }
 
     matriz_destruir(A);
     matriz_destruir(B);
-    matriz_destruir(C);
-    matriz_destruir(C_sequencial);
     matriz_destruir(D);
     matriz_destruir(D_sequencial);
 

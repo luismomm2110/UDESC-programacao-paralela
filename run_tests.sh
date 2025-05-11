@@ -15,6 +15,7 @@ if [ "$MODE" -eq 1 ]; then
   time ./main $MATRIX_SIZE 1 $MODE # warmup
   for i in {1..10}; do 
     echo "=== Running test with $i threads ==="
+    export OMP_NUM_THREADS=$i
     time ./main $MATRIX_SIZE $i $MODE
   done
 else

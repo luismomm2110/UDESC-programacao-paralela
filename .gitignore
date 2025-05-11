@@ -52,3 +52,11 @@ Mkfile.old
 dkms.conf
 main
 log
+/.idea/.gitignore
+/.idea/editor.xml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/UDESC-programacao-paralela.iml
+/.idea/UDESC-programacao-paralela2.iml
+/.idea/vcs.xml

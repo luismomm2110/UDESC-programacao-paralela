@@ -97,7 +97,7 @@ void matriz_multiplicar_openmp(thread_params *args) {
     //         // }
     //         // printf("Thread %d está executando\n", omp_get_thread_num());
     //
-#pragma omp parallel for schedule(static, 5)
+#pragma omp parallel for schedule(static, 1)
     for (int i = 0; i < parametros->D->linhas; i++) {
         for (int j = 0; j < parametros->D->colunas; j++) {
             double sum = 0.0;

@@ -43,6 +43,6 @@ int matrizes_iguais(matriz_t *a, matriz_t *b);
 
 matriz_t *matriz_transpor(matriz_t *A);
 
-matriz_t *matriz_multiplicar_openmp(matriz_t *A, matriz_t *B);
+void *matriz_multiplicar_openmp(thread_params *args);
 
 #endif 

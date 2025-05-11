@@ -89,23 +89,28 @@ void *matriz_multiplicar_paralelo_transposta(void *args) {
    pthread_exit(NULL);
 }
 
-void *matriz_multiplicar_openmp(thread_params *args) {
-   int j, k;
-   double sum;
-   thread_params *parametros = (thread_params *) args;
-   matriz_t *m = matriz_criar(parametros->A->linhas, parametros->A->colunas);
-   
-   omp_set_num_threads(parametros->num_threads);
-   #pragma omp parallel for private(j, k, sum)
-   for (int i = 0; i < parametros->D->linhas; i++) {
-    for (int j = 0; j < parametros->D->colunas; j++) {
-        double sum = 0.0;
-        for (int k = 0; k < parametros->A->colunas; k++) {
-            sum += parametros->A->dados[i][k] * parametros->B->dados[j][k];
+void matriz_multiplicar_openmp(thread_params *args) {
+    thread_params *parametros = (thread_params *) args;
+
+    omp_set_num_threads(parametros->num_threads);
+
+    // #pragma omp parallel
+    //     {
+    //         // if (omp_get_thread_num() == 0) {
+    //         //     printf("Número total de threads: %d\n", omp_get_num_threads());
+    //         // }
+    //         // printf("Thread %d está executando\n", omp_get_thread_num());
+    //
+#pragma omp parallel for schedule(runtime)
+    for (int i = 0; i < parametros->D->linhas; i++) {
+        for (int j = 0; j < parametros->D->colunas; j++) {
+            double sum = 0.0;
+            for (int k = 0; k < parametros->A->colunas; k++) {
+                sum += parametros->A->dados[i][k] * parametros->B->dados[k][j];
+            }
+            parametros->D->dados[i][j] = sum;
         }
-        parametros->D->dados[i][j] += sum;
     }
-}
 }
 
 matriz_t *matriz_multiplicar(matriz_t *A, matriz_t *B)

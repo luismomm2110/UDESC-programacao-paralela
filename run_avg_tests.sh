@@ -7,6 +7,7 @@ OUTPUT_FILE="results_1000_open_mp_transposta.csv"
 
 # Create/clear the CSV file with header
 echo "num_threads,run,real_time" > "$OUTPUT_FILE"
+export OMP_SCHEDULE="dynamic,4"
 
 # For each thread count (1 to 10)
 for threads in {1..10}; do

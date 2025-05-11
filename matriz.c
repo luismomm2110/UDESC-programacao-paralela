@@ -54,13 +54,11 @@ void matriz_preencher(matriz_t *m, double valor)
 }
 
 void *matriz_multiplicar_paralelo(void *args) {
-   int i, j, k;
-   thread_params *parametros = (thread_params *) args;
-   double sum;
-   for (i = parametros->tid; i < parametros->D->linhas; i += parametros->num_threads) {
-      for (j = 0; j < parametros->D->colunas; j++) {
-         sum = 0.0;
-         for (k = 0; k < parametros->A->colunas; k++) {
+   thread_params *parametros = args;
+   for (int i = parametros->tid; i < parametros->D->linhas; i += parametros->num_threads) {
+      for (int j = 0; j < parametros->D->colunas; j++) {
+         double sum = 0.0;
+         for (int k = 0; k < parametros->A->colunas; k++) {
             sum += parametros->A->dados[i][k] * parametros->B->dados[k][j];
          }
          parametros->D->dados[i][j] += sum;

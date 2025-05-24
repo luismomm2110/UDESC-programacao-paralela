@@ -1,4 +1,4 @@
-
+CXX=mpic++
 CXXFLAGS=-O3 -std=c++11 -Wall
 RM=rm -f
 EXEC=mandelbrot

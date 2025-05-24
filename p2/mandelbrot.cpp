@@ -54,8 +54,9 @@ int main(int argc, char **argv){
 
 			row[c]=(n == max_n ? '#' : '.');
 			// armazena a linha na matriz parcial
-			matriz_parcial[i] = row;
 		}
+		// armazena a linha na matriz parcial
+		matriz_parcial[i] = row;
 	}
 	// se não for o processo 0, envie a matriz parcial
 	if (rank != 0) {

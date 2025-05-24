@@ -59,17 +59,17 @@ int main(int argc, char **argv){
 	}
 	// se não for o processo 0, envie a matriz parcial
 	if (rank != 0) {
+		// para cada linha da matriz parcial
 		for (int i = 0; i < fatia; i++) {
-			MPI_Send(matriz_parcial[i], fatia*max_column, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+			MPI_Send(matriz_parcial[i], max_column, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
 		}
 	} else {
-		// mestre
-		//  não precisa receber a sua propria parte
+		// mestre não precisa receber a sua propria parte
 		for (int par = 1; par < size; par++) {
 			// recebe a matriz parcial de cada processo
 			int linha_inicial = par * fatia;
 			for (int linha_do_par = 0; linha_do_par < fatia; linha_do_par++) {
-				MPI_Recv(matriz_completa[linha_inicial+linha_do_par], fatia*max_column, MPI_CHAR, par, 0, MPI_COMM_WORLD, &status);
+				MPI_Recv(matriz_completa[linha_inicial+linha_do_par], max_column, MPI_CHAR, par, 0, MPI_COMM_WORLD, &status);
 			}
 		}
 		// copia a matriz parcial do mestre para a matriz completa
@@ -79,14 +79,8 @@ int main(int argc, char **argv){
 				matriz_completa[i][c] = matriz_parcial[i][c];
 			}
 		}
-	}
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	if (rank == 0) {
-		// mestre imprime
-		cout << "max row: " << max_row << "\n";
+		// mestre imprime após receber todas as partes
 		for(int r = 0; r < max_row; ++r){
-			cout << "Linha " << r << ": ";
 			for(int c = 0; c < max_column; ++c)
 				std::cout << matriz_completa[r][c];
 			cout << '\n';

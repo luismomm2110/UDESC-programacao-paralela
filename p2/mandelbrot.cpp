@@ -34,7 +34,6 @@ int main(int argc, char **argv){
 	}
 
     // quantidade de linhas que cada processo vai processar
-	// todo calcular a sobra
 	int fatia = max_row / size;
 
 	// calcular sua parte da matriz
@@ -58,6 +57,7 @@ int main(int argc, char **argv){
 		// armazena a linha na matriz parcial
 		matriz_parcial[i] = row;
 	}
+
 	// se não for o processo 0, envie a matriz parcial
 	if (rank != 0) {
 		// para cada linha da matriz parcial
@@ -74,12 +74,12 @@ int main(int argc, char **argv){
 			}
 		}
 		// copia a matriz parcial do mestre para a matriz completa
-
 		for (int i = 0; i < fatia; i++) {
 			for(int c = 0; c < max_column; ++c){
 				matriz_completa[i][c] = matriz_parcial[i][c];
 			}
 		}
+
 		// mestre imprime após receber todas as partes
 		for(int r = 0; r < max_row; ++r){
 			for(int c = 0; c < max_column; ++c)

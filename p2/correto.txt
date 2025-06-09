@@ -1,0 +1,199 @@
+rank 0
+rank 0
+rank 0fatia 4
+row 0 column 0iteration 1for rank 0
+row 0 column 0iteration 2for rank 0
+putting in0value 2 for rank 0
+row 0 column 1iteration 1for rank 0
+row 0 column 1iteration 2for rank 0
+row 0 column 1iteration 3for rank 0
+putting in1value 3 for rank 0
+row 0 column 2iteration 1for rank 0
+row 0 column 2iteration 2for rank 0
+row 0 column 2iteration 3for rank 0
+putting in2value 3 for rank 0
+row 0 column 3iteration 1for rank 0
+row 0 column 3iteration 2for rank 0
+row 0 column 3iteration 3for rank 0
+putting in3value 3 for rank 0
+row 0 column 4iteration 1for rank 0
+row 0 column 4iteration 2for rank 0
+row 0 column 4iteration 3for rank 0
+putting in4value 3 for rank 0
+row 0 column 5iteration 1for rank 0
+row 0 column 5iteration 2for rank 0
+row 0 column 5iteration 3for rank 0
+row 0 column 5iteration 4for rank 0
+putting in5value 4 for rank 0
+row 0 column 6iteration 1for rank 0
+row 0 column 6iteration 2for rank 0
+row 0 column 6iteration 3for rank 0
+row 0 column 6iteration 4for rank 0
+putting in6value 5 for rank 0
+row 0 column 7iteration 1for rank 0
+row 0 column 7iteration 2for rank 0
+row 0 column 7iteration 3for rank 0
+row 0 column 7iteration 4for rank 0
+putting in7value 5 for rank 0
+row 0 column 8iteration 1for rank 0
+row 0 column 8iteration 2for rank 0
+row 0 column 8iteration 3for rank 0
+row 0 column 8iteration 4for rank 0
+putting in8value 4 for rank 0
+row 0 column 9iteration 1for rank 0
+row 0 column 9iteration 2for rank 0
+row 0 column 9iteration 3for rank 0
+putting in9value 3 for rank 0
+row 1 column 0iteration 1for rank 0
+row 1 column 0iteration 2for rank 0
+row 1 column 0iteration 3for rank 0
+putting in0value 3 for rank 0
+row 1 column 1iteration 1for rank 0
+row 1 column 1iteration 2for rank 0
+row 1 column 1iteration 3for rank 0
+row 1 column 1iteration 4for rank 0
+putting in1value 4 for rank 0
+row 1 column 2iteration 1for rank 0
+row 1 column 2iteration 2for rank 0
+row 1 column 2iteration 3for rank 0
+row 1 column 2iteration 4for rank 0
+putting in2value 5 for rank 0
+row 1 column 3iteration 1for rank 0
+row 1 column 3iteration 2for rank 0
+row 1 column 3iteration 3for rank 0
+row 1 column 3iteration 4for rank 0
+putting in3value 5 for rank 0
+row 1 column 4iteration 1for rank 0
+row 1 column 4iteration 2for rank 0
+row 1 column 4iteration 3for rank 0
+row 1 column 4iteration 4for rank 0
+putting in4value 5 for rank 0
+row 1 column 5iteration 1for rank 0
+row 1 column 5iteration 2for rank 0
+row 1 column 5iteration 3for rank 0
+row 1 column 5iteration 4for rank 0
+putting in5value 5 for rank 0
+row 1 column 6iteration 1for rank 0
+row 1 column 6iteration 2for rank 0
+row 1 column 6iteration 3for rank 0
+row 1 column 6iteration 4for rank 0
+putting in6value 5 for rank 0
+row 1 column 7iteration 1for rank 0
+row 1 column 7iteration 2for rank 0
+row 1 column 7iteration 3for rank 0
+row 1 column 7iteration 4for rank 0
+putting in7value 5 for rank 0
+row 1 column 8iteration 1for rank 0
+row 1 column 8iteration 2for rank 0
+row 1 column 8iteration 3for rank 0
+row 1 column 8iteration 4for rank 0
+putting in8value 5 for rank 0
+row 1 column 9iteration 1for rank 0
+row 1 column 9iteration 2for rank 0
+row 1 column 9iteration 3for rank 0
+row 1 column 9iteration 4for rank 0
+putting in9value 5 for rank 0
+row 2 column 0iteration 1for rank 0
+row 2 column 0iteration 2for rank 0
+row 2 column 0iteration 3for rank 0
+row 2 column 0iteration 4for rank 0
+putting in0value 5 for rank 0
+row 2 column 1iteration 1for rank 0
+row 2 column 1iteration 2for rank 0
+row 2 column 1iteration 3for rank 0
+row 2 column 1iteration 4for rank 0
+putting in1value 5 for rank 0
+row 2 column 2iteration 1for rank 0
+row 2 column 2iteration 2for rank 0
+row 2 column 2iteration 3for rank 0
+row 2 column 2iteration 4for rank 0
+putting in2value 5 for rank 0
+row 2 column 3iteration 1for rank 0
+row 2 column 3iteration 2for rank 0
+row 2 column 3iteration 3for rank 0
+row 2 column 3iteration 4for rank 0
+putting in3value 5 for rank 0
+row 2 column 4iteration 1for rank 0
+row 2 column 4iteration 2for rank 0
+row 2 column 4iteration 3for rank 0
+row 2 column 4iteration 4for rank 0
+putting in4value 5 for rank 0
+row 2 column 5iteration 1for rank 0
+row 2 column 5iteration 2for rank 0
+row 2 column 5iteration 3for rank 0
+row 2 column 5iteration 4for rank 0
+putting in5value 5 for rank 0
+row 2 column 6iteration 1for rank 0
+row 2 column 6iteration 2for rank 0
+row 2 column 6iteration 3for rank 0
+row 2 column 6iteration 4for rank 0
+putting in6value 5 for rank 0
+row 2 column 7iteration 1for rank 0
+row 2 column 7iteration 2for rank 0
+row 2 column 7iteration 3for rank 0
+row 2 column 7iteration 4for rank 0
+putting in7value 5 for rank 0
+row 2 column 8iteration 1for rank 0
+row 2 column 8iteration 2for rank 0
+row 2 column 8iteration 3for rank 0
+row 2 column 8iteration 4for rank 0
+putting in8value 5 for rank 0
+row 2 column 9iteration 1for rank 0
+row 2 column 9iteration 2for rank 0
+row 2 column 9iteration 3for rank 0
+row 2 column 9iteration 4for rank 0
+putting in9value 5 for rank 0
+row 3 column 0iteration 1for rank 0
+row 3 column 0iteration 2for rank 0
+row 3 column 0iteration 3for rank 0
+putting in0value 3 for rank 0
+row 3 column 1iteration 1for rank 0
+row 3 column 1iteration 2for rank 0
+row 3 column 1iteration 3for rank 0
+row 3 column 1iteration 4for rank 0
+putting in1value 4 for rank 0
+row 3 column 2iteration 1for rank 0
+row 3 column 2iteration 2for rank 0
+row 3 column 2iteration 3for rank 0
+row 3 column 2iteration 4for rank 0
+putting in2value 5 for rank 0
+row 3 column 3iteration 1for rank 0
+row 3 column 3iteration 2for rank 0
+row 3 column 3iteration 3for rank 0
+row 3 column 3iteration 4for rank 0
+putting in3value 5 for rank 0
+row 3 column 4iteration 1for rank 0
+row 3 column 4iteration 2for rank 0
+row 3 column 4iteration 3for rank 0
+row 3 column 4iteration 4for rank 0
+putting in4value 5 for rank 0
+row 3 column 5iteration 1for rank 0
+row 3 column 5iteration 2for rank 0
+row 3 column 5iteration 3for rank 0
+row 3 column 5iteration 4for rank 0
+putting in5value 5 for rank 0
+row 3 column 6iteration 1for rank 0
+row 3 column 6iteration 2for rank 0
+row 3 column 6iteration 3for rank 0
+row 3 column 6iteration 4for rank 0
+putting in6value 5 for rank 0
+row 3 column 7iteration 1for rank 0
+row 3 column 7iteration 2for rank 0
+row 3 column 7iteration 3for rank 0
+row 3 column 7iteration 4for rank 0
+putting in7value 5 for rank 0
+row 3 column 8iteration 1for rank 0
+row 3 column 8iteration 2for rank 0
+row 3 column 8iteration 3for rank 0
+row 3 column 8iteration 4for rank 0
+putting in8value 5 for rank 0
+row 3 column 9iteration 1for rank 0
+row 3 column 9iteration 2for rank 0
+row 3 column 9iteration 3for rank 0
+row 3 column 9iteration 4for rank 0
+putting in9value 5 for rank 0
+finish
+......##..
+..########
+##########
+..########

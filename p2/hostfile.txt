@@ -1,0 +1,12 @@
+# Hostfile para cluster heterogêneo
+# Substitua pelos nomes/IPs reais dos seus nós
+# Formato: hostname slots=numero_de_cores
+
+# Nós com 6 cores cada
+node1 slots=6
+node2 slots=6
+node3 slots=6
+
+# Nós com 4 cores cada  
+node4 slots=4
+node5 slots=4 

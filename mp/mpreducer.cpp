@@ -234,6 +234,7 @@ Task receiveTask(int worker) {
 
     int index;
     std::string file;
+    std::string fileLocation;
     int id;
     MPI_Recv(&index, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     std::cout << "received Index: " << index << std::endl;
@@ -259,14 +260,15 @@ Task receiveTask(int worker) {
     // Then receive the file location based on the length
     char* fileLocationCharArray = new char[fileLocationLength];
     MPI_Recv(fileLocationCharArray, fileLocationLength, MPI_CHAR, COORDINATOR, 6, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    std::cout << "received File location: " << fileLocationCharArray << std::endl;
+    fileLocation = std::string(fileLocationCharArray);
+    std::cout << "received File location: " << fileLocation << std::endl;
     delete[] fileLocationCharArray;
 
     return Task{
         .status = static_cast<Task::Status>(status),
         .type = Task::Type::MAP,
         .index = index,
-        .file = file,
+        .file = fileLocation,  // Use the full path instead of just filename
         .id = id
     };
 }

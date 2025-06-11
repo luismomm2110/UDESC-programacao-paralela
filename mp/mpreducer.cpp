@@ -201,15 +201,28 @@ void sendTaskToWorker(std::vector<Task> &tasks, int worker) {
     std::cout << "Index: " << task.value().index << std::endl;
     MPI_Send(&task.value().index, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD);
     std::cout << "File: " << task.value().file << std::endl;
+    
+    // Send string length first
+    int fileNameLength = task.value().file.size() + 1;
+    MPI_Send(&fileNameLength, 1, MPI_INT, worker, 2, MPI_COMM_WORLD);
+    
+    // Then send the string
     const char *fileCharArray = task.value().file.c_str();
-    MPI_Send(fileCharArray, task.value().file.size() + 1, MPI_CHAR, worker, 2, MPI_COMM_WORLD);
+    MPI_Send(fileCharArray, fileNameLength, MPI_CHAR, worker, 3, MPI_COMM_WORLD);
+    
     std::cout << "Id: " << task.value().id << std::endl;
-    MPI_Send(&task.value().id, sizeof(int), MPI_INT, worker, 3, MPI_COMM_WORLD);
+    MPI_Send(&task.value().id, sizeof(int), MPI_INT, worker, 4, MPI_COMM_WORLD);
 
     std::string fileLocation = "./files/" + task.value().file;
     std::cout << "File location: " << fileLocation << std::endl;
+    
+    // Send file location length first
+    int fileLocationLength = fileLocation.size() + 1;
+    MPI_Send(&fileLocationLength, 1, MPI_INT, worker, 5, MPI_COMM_WORLD);
+    
+    // Then send the file location
     const char *fileLocationCharArray = fileLocation.c_str();
-    MPI_Send(fileLocationCharArray, fileLocation.size() + 1, MPI_CHAR, worker, 4, MPI_COMM_WORLD);
+    MPI_Send(fileLocationCharArray, fileLocationLength, MPI_CHAR, worker, 6, MPI_COMM_WORLD);
     std::cout << "File location sent" << std::endl;
 }
 
@@ -225,16 +238,29 @@ Task receiveTask(int worker) {
     MPI_Recv(&index, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     std::cout << "received Index: " << index << std::endl;
     
-    char fileCharArray[256];
-    MPI_Recv(fileCharArray, 256, MPI_CHAR, COORDINATOR, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    std::cout << "received File: " << fileCharArray << std::endl;
-    file = std::string(fileCharArray);
+    // Receive string length first
+    int fileNameLength;
+    MPI_Recv(&fileNameLength, 1, MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
-    MPI_Recv(&id, sizeof(int), MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // Then receive the string based on the length
+    char* fileCharArray = new char[fileNameLength];
+    MPI_Recv(fileCharArray, fileNameLength, MPI_CHAR, COORDINATOR, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    file = std::string(fileCharArray);
+    delete[] fileCharArray;
+    std::cout << "received File: " << file << std::endl;
+    
+    MPI_Recv(&id, sizeof(int), MPI_INT, COORDINATOR, 4, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    std::cout << "received Id: " << id << std::endl;
 
-    char fileLocationCharArray[256];
-    MPI_Recv(fileLocationCharArray, 256, MPI_CHAR, COORDINATOR, 4, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    // Receive file location length first
+    int fileLocationLength;
+    MPI_Recv(&fileLocationLength, 1, MPI_INT, COORDINATOR, 5, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    // Then receive the file location based on the length
+    char* fileLocationCharArray = new char[fileLocationLength];
+    MPI_Recv(fileLocationCharArray, fileLocationLength, MPI_CHAR, COORDINATOR, 6, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     std::cout << "received File location: " << fileLocationCharArray << std::endl;
+    delete[] fileLocationCharArray;
 
     return Task{
         .status = static_cast<Task::Status>(status),

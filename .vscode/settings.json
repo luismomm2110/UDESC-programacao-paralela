@@ -5,6 +5,9 @@
         "deque": "cpp",
         "vector": "cpp",
         "string_view": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "ostream": "cpp",
+        "*.tcc": "cpp",
+        "string": "cpp"
     }
 }

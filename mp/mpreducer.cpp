@@ -12,6 +12,7 @@
 
 struct Task;
 const int COORDINATOR = 0;
+const int BUFFER_SIZE = 1024;  // Tamanho do buffer para cada reducer
 
 int getFileCount(int rank);
 
@@ -22,6 +23,8 @@ Task receiveTask(int worker);
 std::optional<Task> selectTask(std::vector<Task> &tasks, int worker);
 
 void sendTaskToWorker(std::vector<Task> &tasks, int worker);
+
+void processMapTask(std::ifstream &file, int index);
 
 struct Task {
     enum class Status {
@@ -74,7 +77,8 @@ int main(int argc, char **argv) {
 
 
     // todo mudar o numero de reducers e mappers para pegar do argumento
-    nMap = getFileCount(rank);
+    // nMap = getFileCount(rank);
+    nMap = 1;
     nReduce = 2;
 
     auto [mapTasks, reduceTasks] = initializeTasks(nMap, nReduce);
@@ -107,9 +111,7 @@ int main(int argc, char **argv) {
                 std::ifstream file(task.file);
                 std::string line;
                 std::cout << "Map task " << task.index << " received" << std::endl;
-                while (std::getline(file, line)) {
-                    std::cout << line << std::endl;
-                }
+                processMapTask(file, task.index);
                 file.close();
                 idleWorkers.push(rank);
             } else {
@@ -118,6 +120,13 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (rank == COORDINATOR) {
+        // Clean temp directory before starting
+        if (std::filesystem::exists("./temp")) {
+            std::filesystem::remove_all("./temp");
+        }
+        std::filesystem::create_directory("./temp");
+    }
 
     MPI_Finalize();
 }
@@ -271,4 +280,77 @@ Task receiveTask(int worker) {
         .file = fileLocation,  // Use the full path instead of just filename
         .id = id
     };
+}
+
+void processMapTask(std::ifstream &file, int index) {
+    std::string line;
+    std::map<std::string, std::vector<std::string>> intermediate;
+    std::vector<std::vector<std::string>> buffers(BUFFER_SIZE, std::vector<std::string>(BUFFER_SIZE, ""));
+    std::vector<int> bufferIndices(BUFFER_SIZE, 0);
+    
+    // Read file line by line
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string word;
+        
+        // Process each word in the line
+        while (iss >> word) {
+            // Convert word to lowercase
+            std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+            
+            // Remove punctuation
+            word.erase(std::remove_if(word.begin(), word.end(), ::ispunct), word.end());
+            
+            if (!word.empty()) {
+                // Add word to intermediate map
+                intermediate[word].push_back(std::to_string(index));
+            }
+        }
+
+    // Para cada palavra no intermediate, faz hash e salva no buffer correspondente
+    for (const auto& pair : intermediate) {
+        const std::string& word = pair.first;
+        const std::vector<std::string>& values = pair.second;
+        
+        // Calcula o hash da palavra usando módulo nReduce
+        size_t hash = std::hash<std::string>{}(word) % nReduce;
+        
+        // Adiciona a palavra e seus valores ao buffer correspondente
+        for (const auto& value : values) {
+            if (bufferIndices[hash] < BUFFER_SIZE) {
+                buffers[hash][bufferIndices[hash]] = word + " " + value;
+                bufferIndices[hash]++;
+            }
+        }
+    }
+
+    // Escreve os buffers em arquivos separados para cada reducer
+    for (int i = 0; i < nReduce; i++) {
+        std::string bufferFile = "./temp/temp-" + std::to_string(index) + "-" + std::to_string(i) + ".txt";
+        std::ofstream bufferOut(bufferFile);
+        
+        // Escreve apenas até o índice atual do buffer
+        for (int j = 0; j < bufferIndices[i]; j++) {
+            bufferOut << buffers[i][j] << "\n";
+        }
+        
+        bufferOut.close();
+    }
+        
+    }
+    
+    // Write intermediate results to file
+    std::filesystem::create_directory("./temp");
+    std::string outputFile = "./temp/intermediate_" + std::to_string(index) + ".txt";
+    std::ofstream outFile(outputFile);
+    
+    for (const auto& pair : intermediate) {
+        outFile << pair.first << " " << pair.second.size() << " ";
+        for (const auto& value : pair.second) {
+            outFile << value << " ";
+        }
+        outFile << "\n";
+    }
+    
+    outFile.close();
 }

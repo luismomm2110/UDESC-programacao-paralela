@@ -24,7 +24,7 @@ std::optional<Task> selectTask(std::vector<Task> &tasks, int worker);
 
 void sendTaskToWorker(std::vector<Task> &tasks, int worker);
 
-void processMapTask(std::ifstream &file, int index);
+// processMapTask passa a ser método da classe Mapper
 
 struct Task {
     enum class Status {
@@ -64,61 +64,171 @@ std::ostream &operator<<(std::ostream &os, const Task::Status &status) {
     return os;
 }
 
+// Classe Mapper que encapsula informações do mapper
+class Mapper {
+public:
+    Mapper(int id, int nReducers)
+        : id(id), nReducers(nReducers) {}
+
+    int getId() const { return id; }
+    int getNumReducers() const { return nReducers; }
+
+    void processMapTask(std::ifstream &file, int taskIndex) {
+        std::string line;
+        std::map<std::string, std::vector<std::string>> intermediate;
+        std::vector<std::vector<std::string>> buffers(nReducers, std::vector<std::string>(BUFFER_SIZE, ""));
+        std::vector<int> bufferIndices(nReducers, 0);
+
+        // Lê o arquivo linha por linha
+        while (std::getline(file, line)) {
+            std::istringstream iss(line);
+            std::string word;
+
+            // Processa cada palavra da linha
+            while (iss >> word) {
+                // Converte para minúsculas
+                std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+
+                // Remove pontuação
+                word.erase(std::remove_if(word.begin(), word.end(), ::ispunct), word.end());
+
+                if (!word.empty()) {
+                    // Adiciona ao mapa intermediário
+                    intermediate[word].push_back(std::to_string(taskIndex));
+                }
+            }
+        }
+
+        // Distribui as palavras pelos reducers
+        for (const auto &pair : intermediate) {
+            const std::string &word = pair.first;
+            const std::vector<std::string> &values = pair.second;
+
+            size_t hash = std::hash<std::string>{}(word) % nReducers;
+
+            for (const auto &value : values) {
+                if (bufferIndices[hash] < BUFFER_SIZE) {
+                    buffers[hash][bufferIndices[hash]] = word + " " + value;
+                    bufferIndices[hash]++;
+                }
+            }
+        }
+
+        // Garante existência da pasta temporária
+        std::filesystem::create_directory("./temp");
+
+        // Escreve buffers para arquivos específicos de cada reducer
+        for (int i = 0; i < nReducers; i++) {
+            std::cout << "creating file " << "./temp/intermediate-" + std::to_string(taskIndex) + "-" + std::to_string(i) + ".txt" << std::endl;
+            std::string bufferFile = "./temp/intermediate-" + std::to_string(taskIndex) + "-" + std::to_string(i) + ".txt";
+            std::ofstream bufferOut(bufferFile);
+
+            for (int j = 0; j < bufferIndices[i]; j++) {
+                bufferOut << buffers[i][j] << "\n";
+            }
+
+            bufferOut.close();
+        }
+    }
+
+private:
+    int id;          // Identificador único do mapper
+    int nReducers;   // Número de reducers no sistema
+};
+
+// Add new message type for task requests
+enum class MessageType {
+    TASK_REQUEST,
+    TASK_RESPONSE,
+    TASK_COMPLETED,
+    NO_MORE_TASKS
+};
+
+void sendTaskResponse(const Task& task, int worker) {
+    std::cout << "Sending task response to worker " << worker << std::endl;
+    
+    // Send message type first
+    MessageType msgType = MessageType::TASK_RESPONSE;
+    MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, worker, 0, MPI_COMM_WORLD);
+    
+    // Send task status
+    MPI_Send(&task.status, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD);
+    MPI_Send(&task.index, sizeof(int), MPI_INT, worker, 2, MPI_COMM_WORLD);
+    
+    // Send file name
+    int fileNameLength = task.file.size() + 1;
+    MPI_Send(&fileNameLength, 1, MPI_INT, worker, 3, MPI_COMM_WORLD);
+    MPI_Send(task.file.c_str(), fileNameLength, MPI_CHAR, worker, 4, MPI_COMM_WORLD);
+    
+    MPI_Send(&task.id, sizeof(int), MPI_INT, worker, 5, MPI_COMM_WORLD);
+}
+
+void sendNoMoreTasks(int worker) {
+    MessageType msgType = MessageType::NO_MORE_TASKS;
+    MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, worker, 0, MPI_COMM_WORLD);
+}
+
+Task requestTask(int worker) {
+    // Send task request to coordinator
+    MessageType msgType = MessageType::TASK_REQUEST;
+    MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
+    
+    // Receive response type
+    MessageType responseType;
+    MPI_Recv(&responseType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    if (responseType == MessageType::NO_MORE_TASKS) {
+        // Return a dummy task to indicate no more tasks
+        return Task{
+            .status = Task::Status::COMPLETED,
+            .type = Task::Type::MAP,
+            .index = -1,
+            .file = "",
+            .id = -1
+        };
+    }
+    
+    // Receive task details
+    int status, index, id;
+    MPI_Recv(&status, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&index, sizeof(int), MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    // Receive file name
+    int fileNameLength;
+    MPI_Recv(&fileNameLength, 1, MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    char* fileCharArray = new char[fileNameLength];
+    MPI_Recv(fileCharArray, fileNameLength, MPI_CHAR, COORDINATOR, 4, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    std::string file(fileCharArray);
+    delete[] fileCharArray;
+    
+    MPI_Recv(&id, sizeof(int), MPI_INT, COORDINATOR, 5, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    
+    return Task{
+        .status = static_cast<Task::Status>(status),
+        .type = Task::Type::MAP,
+        .index = index,
+        .file = "./files/" + file,
+        .id = id
+    };
+}
+
+void notifyTaskCompleted(int worker, int taskId) {
+    MessageType msgType = MessageType::TASK_COMPLETED;
+    MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
+    MPI_Send(&taskId, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
+}
+
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
 
     int rank, size, nMap, nReduce;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    std::queue<int> idleWorkers;
-    for (int i = 1; i < size; i++) {
-        idleWorkers.push(i);
-    }
 
-
-    // todo mudar o numero de reducers e mappers para pegar do argumento
-    // nMap = getFileCount(rank);
     nMap = 1;
     nReduce = 2;
 
     auto [mapTasks, reduceTasks] = initializeTasks(nMap, nReduce);
-
-    if (rank == COORDINATOR) {
-        while (nMap > 0) {
-            int worker = idleWorkers.front();
-            idleWorkers.pop();
-            if (idleWorkers.empty()) {
-                break;
-            }
-            sendTaskToWorker(mapTasks, worker);
-            nMap--;
-        }
-
-        // while (nReduce > 0) {
-        //     int worker = idleWorkers.front();
-        //     idleWorkers.pop();
-        //     if (idleWorkers.empty()) {
-        //         break;
-        //     }
-        //     sendTaskToWorker(reduceTasks, worker);
-        //     nReduce--;
-        // }
-    } else {
-        while (true) {
-            Task task = receiveTask(rank);
-            if (task.type == Task::Type::MAP) {
-                // map task
-                std::ifstream file(task.file);
-                std::string line;
-                std::cout << "Map task " << task.index << " received" << std::endl;
-                processMapTask(file, task.index);
-                file.close();
-                idleWorkers.push(rank);
-            } else {
-                // reduce task 
-            }
-        }
-    }
 
     if (rank == COORDINATOR) {
         // Clean temp directory before starting
@@ -126,6 +236,62 @@ int main(int argc, char **argv) {
             std::filesystem::remove_all("./temp");
         }
         std::filesystem::create_directory("./temp");
+
+        int activeWorkers = size - 1;  // All workers except coordinator
+        int completedTasks = 0;
+        
+        while (activeWorkers > 0) {
+            // Wait for any message from workers
+            MessageType msgType;
+            MPI_Status status;
+            MPI_Recv(&msgType, sizeof(MessageType), MPI_BYTE, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+            int worker = status.MPI_SOURCE;
+            
+            if (msgType == MessageType::TASK_REQUEST) {
+                auto task = selectTask(mapTasks, worker);
+                if (task.has_value()) {
+                    sendTaskResponse(task.value(), worker);
+                } else {
+                    sendNoMoreTasks(worker);
+                    activeWorkers--;
+                }
+            } else if (msgType == MessageType::TASK_COMPLETED) {
+                int taskId;
+                MPI_Recv(&taskId, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                completedTasks++;
+                
+                // Mark task as completed
+                for (auto& task : mapTasks) {
+                    if (task.id == taskId) {
+                        task.status = Task::Status::COMPLETED;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        std::cout << "All tasks completed. Total: " << completedTasks << std::endl;
+    } else {
+        // Worker process
+        Mapper mapper(rank, nReduce);
+        
+        while (true) {
+            Task task = requestTask(rank);
+            
+            // Check if no more tasks
+            if (task.index == -1) {
+                std::cout << "Worker " << rank << " received no more tasks signal" << std::endl;
+                break;
+            }
+            
+            std::cout << "Worker " << rank << " processing map task " << task.index << std::endl;
+            std::ifstream file(task.file);
+            mapper.processMapTask(file, task.index);
+            file.close();
+            
+            // Notify coordinator that task is completed
+            notifyTaskCompleted(rank, task.id);
+        }
     }
 
     MPI_Finalize();
@@ -280,77 +446,4 @@ Task receiveTask(int worker) {
         .file = fileLocation,  // Use the full path instead of just filename
         .id = id
     };
-}
-
-void processMapTask(std::ifstream &file, int index) {
-    std::string line;
-    std::map<std::string, std::vector<std::string>> intermediate;
-    std::vector<std::vector<std::string>> buffers(BUFFER_SIZE, std::vector<std::string>(BUFFER_SIZE, ""));
-    std::vector<int> bufferIndices(BUFFER_SIZE, 0);
-    
-    // Read file line by line
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        std::string word;
-        
-        // Process each word in the line
-        while (iss >> word) {
-            // Convert word to lowercase
-            std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-            
-            // Remove punctuation
-            word.erase(std::remove_if(word.begin(), word.end(), ::ispunct), word.end());
-            
-            if (!word.empty()) {
-                // Add word to intermediate map
-                intermediate[word].push_back(std::to_string(index));
-            }
-        }
-
-    // Para cada palavra no intermediate, faz hash e salva no buffer correspondente
-    for (const auto& pair : intermediate) {
-        const std::string& word = pair.first;
-        const std::vector<std::string>& values = pair.second;
-        
-        // Calcula o hash da palavra usando módulo nReduce
-        size_t hash = std::hash<std::string>{}(word) % nReduce;
-        
-        // Adiciona a palavra e seus valores ao buffer correspondente
-        for (const auto& value : values) {
-            if (bufferIndices[hash] < BUFFER_SIZE) {
-                buffers[hash][bufferIndices[hash]] = word + " " + value;
-                bufferIndices[hash]++;
-            }
-        }
-    }
-
-    // Escreve os buffers em arquivos separados para cada reducer
-    for (int i = 0; i < nReduce; i++) {
-        std::string bufferFile = "./temp/temp-" + std::to_string(index) + "-" + std::to_string(i) + ".txt";
-        std::ofstream bufferOut(bufferFile);
-        
-        // Escreve apenas até o índice atual do buffer
-        for (int j = 0; j < bufferIndices[i]; j++) {
-            bufferOut << buffers[i][j] << "\n";
-        }
-        
-        bufferOut.close();
-    }
-        
-    }
-    
-    // Write intermediate results to file
-    std::filesystem::create_directory("./temp");
-    std::string outputFile = "./temp/intermediate_" + std::to_string(index) + ".txt";
-    std::ofstream outFile(outputFile);
-    
-    for (const auto& pair : intermediate) {
-        outFile << pair.first << " " << pair.second.size() << " ";
-        for (const auto& value : pair.second) {
-            outFile << value << " ";
-        }
-        outFile << "\n";
-    }
-    
-    outFile.close();
 }

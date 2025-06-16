@@ -136,10 +136,11 @@ void Worker::createReduceOutput(Task task, std::map<std::string, std::vector<std
 void Worker::notifyTaskCompleted(Task task) {
     MessageType msgType = MessageType::TASK_COMPLETED;
     MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
-    MPI_Send(&task.type, sizeof(Task::Type), MPI_BYTE, COORDINATOR, 1, MPI_COMM_WORLD);
-    MPI_Send(&task.index, sizeof(int), MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD);
-    MPI_Send(&task.workerId, sizeof(int), MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD);
-    std::cout << "Notified task completed:  type: " << task.type << "  task: " << task.index << " worker: " << task.workerId << std::endl;
+    int taskTypeValue = static_cast<int>(task.type);
+    MPI_Send(&taskTypeValue, 1, MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
+    MPI_Send(&task.index, 1, MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD);
+    MPI_Send(&task.workerId, 1, MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD);
+    std::cout << "Notified task completed:  type value: " << taskTypeValue << "  task: " << task.index << " worker: " << task.workerId << std::endl;
 }
 
 Task Worker::requestTask() {
@@ -150,9 +151,6 @@ Task Worker::requestTask() {
     // Receive response type
     MessageType responseType;
     MPI_Recv(&responseType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    
-    std::cout << "Received task request" << std::endl;
-    std::cout << "Response type: " << responseType << std::endl;
     
     if (responseType == MessageType::NO_MORE_TASKS) {
         return Task{

@@ -2,7 +2,6 @@
 #include "task.hpp"
 
 const int COORDINATOR = 0;
-const int BUFFER_SIZE = 1024;  // Tamanho do buffer para cada reducer
 
 Worker::Worker(int id, int nReducers)
     : id(id), nReducers(nReducers) {}
@@ -26,7 +25,7 @@ void Worker::run() {
 
         if (task.type == Task::Type::NO_TASKS) {
             // sleep 200 ms
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
     }
 }
@@ -34,8 +33,8 @@ void Worker::run() {
 void Worker::processMapTask(std::ifstream &file, Task task) {
     std::string line;
     std::map<std::string, std::vector<std::string>> intermediate;
-    std::vector<std::vector<std::string>> buffers(nReducers, std::vector<std::string>(BUFFER_SIZE, ""));
-    std::vector<int> bufferIndices(nReducers, 0);
+    // Removendo o conceito de buffer fixo e usando vetores dinâmicos
+    std::vector<std::vector<std::string>> reducerData(nReducers);
 
     // Lê o arquivo linha por linha
     while (std::getline(file, line)) {
@@ -65,10 +64,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
         size_t hash = std::hash<std::string>{}(word) % nReducers;
 
         for (const auto &value : values) {
-            if (bufferIndices[hash] < BUFFER_SIZE) {
-                buffers[hash][bufferIndices[hash]] = word + " " + value;
-                bufferIndices[hash]++;
-            }
+            reducerData[hash].push_back(word + " " + value);
         }
     }
 
@@ -80,8 +76,8 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
         std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
 
-        for (int j = 0; j < bufferIndices[i]; j++) {
-            bufferOut << buffers[i][j] << "\n";
+        for (const auto &data : reducerData[i]) {
+            bufferOut << data << "\n";
         }
 
         bufferOut.close();
@@ -99,7 +95,7 @@ void Worker::processReduceTask(Task task) {
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
         auto filename = entry.path().filename().string();
         if (filename.find("intermediate-") != std::string::npos && 
-            filename.find("-" + std::to_string(task.workerId) + ".txt") != std::string::npos) {
+            filename.find("-" + std::to_string(task.index) + ".txt") != std::string::npos) {
             files.push_back(entry.path().string());
         }
     }

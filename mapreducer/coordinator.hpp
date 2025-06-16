@@ -19,8 +19,11 @@ private:
     void sendNoMoreTasks(int worker);
     std::pair<std::vector<Task>, std::vector<Task> > initializeTasks(int nReduce);
 
-    int nReduce;
+    int numberReduce;
+    std::map<int, Task> taskMap;
     int worldSize;
+    int numberMapTasks;
+    int numberReduceTasks;
     std::vector<Task> mapTasks;
     std::vector<Task> reduceTasks;
     int activeWorkers;

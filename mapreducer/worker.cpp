@@ -13,28 +13,25 @@ int Worker::getNumReducers() const { return nReducers; }
 void Worker::run() {
     while (true) {
         Task task = requestTask();
+        std::cout << "Received task " << task.type << " " << " " << task.file << " id: " << task.id << std::endl; 
 
-        // recebeu sinal de fim de tarefas
-        if (task.type == Task::Type::EXIT) {
-            return;
-        }
 
         if (task.type == Task::Type::MAP) {
             std::ifstream file(task.file);
-            processMapTask(file, task.index);
+            processMapTask(file, task);
             file.close();
         } else if (task.type == Task::Type::REDUCE) {
-            processReduceTask(task.index);
+            processReduceTask(task);
         }
 
         if (task.type == Task::Type::NO_TASKS) {
             // sleep 200 ms
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         }
     }
 }
 
-void Worker::processMapTask(std::ifstream &file, int taskIndex) {
+void Worker::processMapTask(std::ifstream &file, Task task) {
     std::string line;
     std::map<std::string, std::vector<std::string>> intermediate;
     std::vector<std::vector<std::string>> buffers(nReducers, std::vector<std::string>(BUFFER_SIZE, ""));
@@ -55,7 +52,7 @@ void Worker::processMapTask(std::ifstream &file, int taskIndex) {
 
             if (!word.empty()) {
                 // Adiciona ao mapa intermediário
-                intermediate[word].push_back(std::to_string(taskIndex));
+                intermediate[word].push_back(std::to_string(task.index));
             }
         }
     }
@@ -80,8 +77,7 @@ void Worker::processMapTask(std::ifstream &file, int taskIndex) {
 
     // Escreve buffers para arquivos específicos de cada reducer
     for (int i = 0; i < nReducers; i++) {
-        std::cout << "creating file " << "./temp/intermediate-" + std::to_string(taskIndex) + "-" + std::to_string(i) + ".txt" << std::endl;
-        std::string bufferFile = "./temp/intermediate-" + std::to_string(taskIndex) + "-" + std::to_string(i) + ".txt";
+        std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
 
         for (int j = 0; j < bufferIndices[i]; j++) {
@@ -90,9 +86,11 @@ void Worker::processMapTask(std::ifstream &file, int taskIndex) {
 
         bufferOut.close();
     }
+
+    notifyTaskCompleted(task);
 }
 
-void Worker::processReduceTask(int taskIndex) {
+void Worker::processReduceTask(Task task) {
     // cria chave e valor para cada par de palavra
     std::map<std::string, std::vector<std::string>> kv_store;
 
@@ -100,10 +98,12 @@ void Worker::processReduceTask(int taskIndex) {
     // read all files with intermediate-taskIndex-anything.txt
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
         auto filename = entry.path().filename().string();
-        if (filename.find("intermediate-" + std::to_string(taskIndex) + "-") != std::string::npos) {
+        if (filename.find("intermediate-") != std::string::npos && 
+            filename.find("-" + std::to_string(task.index) + ".txt") != std::string::npos) {
             files.push_back(entry.path().string());
         }
     }
+    std::cout << "Files: " << files.size() << std::endl;
 
     for (const auto &file: files) {
         std::ifstream inFile(file);
@@ -123,16 +123,24 @@ void Worker::processReduceTask(int taskIndex) {
         }
     }
 
-    createReduceOutput(taskIndex, kv_store);
+    createReduceOutput(task, kv_store);
 }
 
-void Worker::createReduceOutput(int taskIndex, std::map<std::string, std::vector<std::string>> &kv_store) {
+void Worker::createReduceOutput(Task task, std::map<std::string, std::vector<std::string>> &kv_store) {
     std::filesystem::create_directory("./output");
-    std::ofstream outputFile("./output/reduce-" + std::to_string(taskIndex) + ".txt");
+    std::ofstream outputFile("./output/reduce-" + std::to_string(task.index) + ".txt");
     for (const auto &pair: kv_store) {
         outputFile << pair.first << " " << pair.second.size() << std::endl;
     }
     outputFile.close();
+
+    notifyTaskCompleted(task);
+}
+
+void Worker::notifyTaskCompleted(Task task) {
+    MessageType msgType = MessageType::TASK_COMPLETED;
+    MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
+    MPI_Send(&task.id, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
 }
 
 Task Worker::requestTask() {
@@ -144,10 +152,13 @@ Task Worker::requestTask() {
     MessageType responseType;
     MPI_Recv(&responseType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
+    std::cout << "Received task request" << std::endl;
+    std::cout << "Response type: " << responseType << std::endl;
+    
     if (responseType == MessageType::NO_MORE_TASKS) {
         return Task{
             .status = Task::Status::COMPLETED,
-            .type = Task::Type::EXIT,
+            .type = Task::Type::NO_TASKS,
             .index = -1,
             .file = "",
             .id = -1
@@ -168,10 +179,12 @@ Task Worker::requestTask() {
     delete[] fileCharArray;
     
     MPI_Recv(&id, sizeof(int), MPI_INT, COORDINATOR, 5, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    
+    int taskType;
+    MPI_Recv(&taskType, sizeof(int), MPI_INT, COORDINATOR, 6, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    std::cout << "Received task type: " << taskType << std::endl;
     return Task{
         .status = static_cast<Task::Status>(status),
-        .type = static_cast<Task::Type>(index >= 0 ? Task::Type::MAP : Task::Type::NO_TASKS),
+        .type = static_cast<Task::Type>(taskType),
         .index = index,
         .file = "./files/" + file,
         .id = id

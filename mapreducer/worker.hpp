@@ -19,12 +19,13 @@ public:
     int getId() const;
     int getNumReducers() const;
     void run();
-    void processMapTask(std::ifstream &file, int taskIndex);
-    void processReduceTask(int taskIndex);
+    void processMapTask(std::ifstream &file, Task task);
+    void processReduceTask(Task task);
     Task requestTask();
 
 private:
-    void createReduceOutput(int taskIndex, std::map<std::string, std::vector<std::string>> &kv_store);
+    void createReduceOutput(Task task, std::map<std::string, std::vector<std::string>> &kv_store);
+    void notifyTaskCompleted(Task task);
     int id;          // Identificador único do worker
     int nReducers;   // Número de reducers no sistema
 }; 

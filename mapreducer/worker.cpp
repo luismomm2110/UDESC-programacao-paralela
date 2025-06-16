@@ -13,7 +13,7 @@ int Worker::getNumReducers() const { return nReducers; }
 void Worker::run() {
     while (true) {
         Task task = requestTask();
-        std::cout << "Received task " << task.type << " " << " " << task.file << " id: " << task.id << std::endl; 
+        std::cout << "Received task " << task.type << " " << " " << task.file << " id: " << task.workerId << " index: " << task.index << std::endl; 
 
 
         if (task.type == Task::Type::MAP) {
@@ -77,7 +77,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 
     // Escreve buffers para arquivos específicos de cada reducer
     for (int i = 0; i < nReducers; i++) {
-        std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
+        std::string bufferFile = "./temp/intermediate-" + std::to_string(task.workerId) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
 
         for (int j = 0; j < bufferIndices[i]; j++) {
@@ -99,7 +99,7 @@ void Worker::processReduceTask(Task task) {
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
         auto filename = entry.path().filename().string();
         if (filename.find("intermediate-") != std::string::npos && 
-            filename.find("-" + std::to_string(task.index) + ".txt") != std::string::npos) {
+            filename.find("-" + std::to_string(task.workerId) + ".txt") != std::string::npos) {
             files.push_back(entry.path().string());
         }
     }
@@ -140,7 +140,8 @@ void Worker::createReduceOutput(Task task, std::map<std::string, std::vector<std
 void Worker::notifyTaskCompleted(Task task) {
     MessageType msgType = MessageType::TASK_COMPLETED;
     MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
-    MPI_Send(&task.id, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
+    MPI_Send(&task.type, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
+    MPI_Send(&task.workerId, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
 }
 
 Task Worker::requestTask() {
@@ -161,7 +162,7 @@ Task Worker::requestTask() {
             .type = Task::Type::NO_TASKS,
             .index = -1,
             .file = "",
-            .id = -1
+            .workerId = -1
         };
     }
     
@@ -187,6 +188,6 @@ Task Worker::requestTask() {
         .type = static_cast<Task::Type>(taskType),
         .index = index,
         .file = "./files/" + file,
-        .id = id
+        .workerId = id
     };
 } 

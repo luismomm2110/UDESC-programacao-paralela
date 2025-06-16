@@ -21,7 +21,7 @@ struct Task {
     Type type;
     int index;
     std::string file;
-    int id;
+    int workerId;
 };
 
 enum class MessageType {

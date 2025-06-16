@@ -20,7 +20,6 @@ private:
     std::pair<std::vector<Task>, std::vector<Task> > initializeTasks(int nReduce);
 
     int numberReduce;
-    std::map<int, Task> taskMap;
     int worldSize;
     int numberMapTasks;
     int numberReduceTasks;

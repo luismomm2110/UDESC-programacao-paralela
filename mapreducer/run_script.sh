@@ -5,6 +5,7 @@ rm -f mpreducer
 
 # Remove temp directory if it exists
 rm -rf ./temp
+rm -rf ./output
 
 # Compile the MPI program
 mpic++ -std=c++17 -o mpreducer mpreducer.cpp coordinator.cpp worker.cpp

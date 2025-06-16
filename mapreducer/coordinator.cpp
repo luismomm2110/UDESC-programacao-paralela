@@ -8,32 +8,8 @@ Coordinator::Coordinator(int nReduce, int worldSize)
     : numberReduce(nReduce), worldSize(worldSize) {
     // Inicializa as tarefas
     auto [mapTasks, reduceTasks] = initializeTasks(nReduce);
-    
-    // Cria um mapa hash para armazenar todas as tarefas por ID
-    std::map<int, Task> taskMap;
-    
-    // Adiciona tarefas de map ao hash map
-    std::cout << "Number of map tasks: " << mapTasks.size() << std::endl;
-    for (const auto& task : mapTasks) {
-        taskMap[task.id] = task;
-    }
-    
-    // Adiciona tarefas de reduce ao hash map
-    for (const auto& task : reduceTasks) {
-        taskMap[task.id] = task;
-    }
-    std::cout << "Task Map:" << std::endl;
-    for (const auto& [id, task] : taskMap) {
-        std::cout << "ID: " << id 
-                  << " Type: " << task.type 
-                  << " Status: " << task.status 
-                  << " Id: " << task.id
-                  << " Index: " << task.index 
-                  << " File: " << task.file << std::endl;
-    }
     this->mapTasks = std::move(mapTasks);
     this->reduceTasks = std::move(reduceTasks);
-    this->taskMap = std::move(taskMap);
     this->numberMapTasks = this->mapTasks.size();
     this->numberReduceTasks = this->reduceTasks.size();
     
@@ -83,17 +59,26 @@ void Coordinator::handleTaskRequest(int worker) {
 }
 
 void Coordinator::handleTaskCompleted(int worker) {
-    int taskId;
+    int taskId, taskType;
     MPI_Recv(&taskId, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    std::cout << "Task completed " << taskId << std::endl;
+    MPI_Recv(&taskType, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    Task::Type taskTypeEnum = static_cast<Task::Type>(taskType);
     
-    auto task = taskMap[taskId];
-    task.status = Task::Status::COMPLETED;
-    taskMap.erase(taskId);
-    if (task.type == Task::Type::MAP) {
-        numberMapTasks--;
-    } else if (task.type == Task::Type::REDUCE) {
-        numberReduceTasks--;
+    std::cout << "Task completed " << taskId << " type: " << taskTypeEnum << std::endl;
+    if (taskTypeEnum == Task::Type::MAP) {
+        for (auto &task: mapTasks) {
+            if (task.index == taskId) {
+                task.status = Task::Status::COMPLETED;
+                numberMapTasks--;
+            }
+        }
+    } else if (taskTypeEnum == Task::Type::REDUCE) {
+        for (auto &task: reduceTasks) {
+            if (task.index == taskId) {
+                task.status = Task::Status::COMPLETED;
+                numberReduceTasks--;
+            }   
+        }
     }
 }
 
@@ -102,7 +87,7 @@ std::optional<Task> Coordinator::selectTask(std::vector<Task> &tasks, int worker
     for (auto &task: tasks) {
         if (task.status == Task::Status::NOT_ASSIGNED) {
             task.status = Task::Status::PENDING;
-            task.index = worker;
+            task.workerId = worker;
             return std::make_optional(task);
         }
     }
@@ -110,7 +95,7 @@ std::optional<Task> Coordinator::selectTask(std::vector<Task> &tasks, int worker
 }
 
 void Coordinator::sendTaskResponse(const Task& task, int worker) {
-    std::cout << "Sending task " << task.type << " index: " << task.index << " file: " << task.file << " id: " << task.id << std::endl;
+    std::cout << "Sending task " << task.type << " index: " << task.index << " file: " << task.file << " id: " << task.workerId << std::endl;
     
     // Send message type first
     MessageType msgType = MessageType::TASK_RESPONSE;
@@ -125,7 +110,7 @@ void Coordinator::sendTaskResponse(const Task& task, int worker) {
     MPI_Send(&fileNameLength, 1, MPI_INT, worker, 3, MPI_COMM_WORLD);
     MPI_Send(task.file.c_str(), fileNameLength, MPI_CHAR, worker, 4, MPI_COMM_WORLD);
     
-    MPI_Send(&task.id, sizeof(int), MPI_INT, worker, 5, MPI_COMM_WORLD);
+    MPI_Send(&task.workerId, sizeof(int), MPI_INT, worker, 5, MPI_COMM_WORLD);
     MPI_Send(&task.type, sizeof(Task::Type), MPI_BYTE, worker, 6, MPI_COMM_WORLD);
 }
 
@@ -147,27 +132,25 @@ std::pair<std::vector<Task>, std::vector<Task>> Coordinator::initializeTasks(int
     std::vector<Task> mapTasks(nMap);
     std::vector<Task> reduceTasks(nReduce);
 
-    int globalId = 0;
     for (int i = 0; i < nMap; i++) {
         mapTasks[i] = Task{
             .status = Task::Status::NOT_ASSIGNED,
             .type = Task::Type::MAP,
-            .index = -1,
+            .index = i,
             .file = files[i],  // Use the actual filename
-            .id = globalId
+            .workerId = -1,
+            
         };
-        globalId++;
     }
 
     for (int i = 0; i < nReduce; i++) {
         reduceTasks[i] = Task{
             .status = Task::Status::NOT_ASSIGNED,
             .type = Task::Type::REDUCE,
-            .index = -1,
+            .index = i,
             .file = "",
-            .id = globalId
+            .workerId = -1,
         };
-        globalId++;
     }
 
     return {mapTasks, reduceTasks};

@@ -77,7 +77,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 
     // Escreve buffers para arquivos específicos de cada reducer
     for (int i = 0; i < nReducers; i++) {
-        std::string bufferFile = "./temp/intermediate-" + std::to_string(task.workerId) + "-" + std::to_string(i) + ".txt";
+        std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
 
         for (int j = 0; j < bufferIndices[i]; j++) {
@@ -140,8 +140,10 @@ void Worker::createReduceOutput(Task task, std::map<std::string, std::vector<std
 void Worker::notifyTaskCompleted(Task task) {
     MessageType msgType = MessageType::TASK_COMPLETED;
     MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
-    MPI_Send(&task.type, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
-    MPI_Send(&task.workerId, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
+    MPI_Send(&task.type, sizeof(Task::Type), MPI_BYTE, COORDINATOR, 1, MPI_COMM_WORLD);
+    MPI_Send(&task.index, sizeof(int), MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD);
+    MPI_Send(&task.workerId, sizeof(int), MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD);
+    std::cout << "Notified task completed:  type: " << task.type << "  task: " << task.index << " worker: " << task.workerId << std::endl;
 }
 
 Task Worker::requestTask() {

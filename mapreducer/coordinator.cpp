@@ -49,7 +49,6 @@ void Coordinator::handleTaskRequest(int worker) {
         }
     } else if (numberReduceTasks > 0) {
         auto task = selectTask(reduceTasks, worker);
-        std::cout << "Selected reduce task " << task.value().index << std::endl;
         if (task.has_value()) {
             sendTaskResponse(task.value(), worker);
         } else {
@@ -59,20 +58,21 @@ void Coordinator::handleTaskRequest(int worker) {
 }
 
 void Coordinator::handleTaskCompleted(int worker) {
-    int taskId, taskType;
-    MPI_Recv(&taskId, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&taskType, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    Task::Type taskTypeEnum = static_cast<Task::Type>(taskType);
+    int taskId, taskWorkerId;
+    Task::Type taskType;
+    MPI_Recv(&taskType, sizeof(Task::Type), MPI_BYTE, worker, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&taskId, sizeof(int), MPI_INT, worker, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&taskWorkerId, sizeof(int), MPI_INT, worker, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
-    std::cout << "Task completed " << taskId << " type: " << taskTypeEnum << std::endl;
-    if (taskTypeEnum == Task::Type::MAP) {
+    std::cout << "Task completed id: " << taskId << " type: " << taskType << " worker: " << taskWorkerId << std::endl;
+    if (taskType == Task::Type::MAP) {
         for (auto &task: mapTasks) {
             if (task.index == taskId) {
                 task.status = Task::Status::COMPLETED;
                 numberMapTasks--;
             }
         }
-    } else if (taskTypeEnum == Task::Type::REDUCE) {
+    } else if (taskType == Task::Type::REDUCE) {
         for (auto &task: reduceTasks) {
             if (task.index == taskId) {
                 task.status = Task::Status::COMPLETED;

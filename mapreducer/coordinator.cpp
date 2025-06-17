@@ -1,5 +1,6 @@
 #include "coordinator.hpp"
 #include "task.hpp"
+#include "logger.hpp"
 #include <iostream>
 
 const int COORDINATOR = 0;
@@ -19,7 +20,7 @@ Coordinator::Coordinator(int nReduce, int worldSize)
 }
 
 void Coordinator::run() {
-    while (true) {
+    while (activeWorkers > 0) {
         // Aguarda mensagem de qualquer worker
         MessageType msgType;
         MPI_Status status;
@@ -33,13 +34,10 @@ void Coordinator::run() {
             handleTaskCompleted(worker);
         }
     }
-
-    std::cout << "Todas as tarefas completadas. Total: " << completedTasks << std::endl;
+    Logger::logln("Todas as tarefas completadas. Total: ", completedTasks);
 }
 
 void Coordinator::handleTaskRequest(int worker) {
-    std::cout << "Number of map tasks: " << numberMapTasks << std::endl;
-    std::cout << "Number of reduce tasks: " << numberReduceTasks << std::endl;
     if (numberMapTasks > 0) {
         auto task = selectTask(mapTasks, worker);
         if (task.has_value()) {
@@ -54,7 +52,20 @@ void Coordinator::handleTaskRequest(int worker) {
         } else {
             sendNoMoreTasks(worker);
         }
+    } else {
+        sendExit(worker);
     }
+}
+
+void Coordinator::sendExit(int worker) {
+    Task task;
+    task.type = Task::Type::EXIT;
+    task.index = -1;
+    task.file = "";
+    task.workerId = worker;
+    task.status = Task::Status::COMPLETED;
+    sendTaskResponse(task, worker);
+    activeWorkers--;
 }
 
 void Coordinator::handleTaskCompleted(int worker) {
@@ -64,8 +75,6 @@ void Coordinator::handleTaskCompleted(int worker) {
     Task::Type taskType = static_cast<Task::Type>(taskTypeValue);
     MPI_Recv(&taskId, 1, MPI_INT, worker, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(&taskWorkerId, 1, MPI_INT, worker, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    std::cout << "Task completed id: " << taskId << " type value: " << taskTypeValue << " worker: " << taskWorkerId <<
-            std::endl;
 
     if (taskType == Task::Type::MAP) {
         for (auto &task: mapTasks) {
@@ -97,8 +106,7 @@ std::optional<Task> Coordinator::selectTask(std::vector<Task> &tasks, int worker
 }
 
 void Coordinator::sendTaskResponse(const Task &task, int worker) {
-    std::cout << "Sending task " << task.type << " index: " << task.index << " file: " << task.file << " id: " << task.
-            workerId << std::endl;
+    Logger::logln("Sending task ", task.type, " index: ", task.index, " file: ", task.file, " id: ", task.workerId);
 
     // Send message type first
     MessageType msgType = MessageType::TASK_RESPONSE;
@@ -127,12 +135,11 @@ std::pair<std::vector<Task>, std::vector<Task> > Coordinator::initializeTasks(in
     std::vector<std::string> files;
     std::string directory = "./files";
 
-    // List files in directory
     for (const auto &entry: std::filesystem::directory_iterator(directory)) {
         files.push_back(entry.path().filename().string());
     }
 
-    int nMap = files.size(); // nMap is now determined by number of input files
+    int nMap = files.size();
     std::vector<Task> mapTasks(nMap);
     std::vector<Task> reduceTasks(nReduce);
 
@@ -141,7 +148,7 @@ std::pair<std::vector<Task>, std::vector<Task> > Coordinator::initializeTasks(in
             .status = Task::Status::NOT_ASSIGNED,
             .type = Task::Type::MAP,
             .index = i,
-            .file = files[i], // Use the actual filename
+            .file = files[i],
             .workerId = -1,
 
         };

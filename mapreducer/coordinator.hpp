@@ -13,6 +13,7 @@ public:
 
 private:
     void handleTaskRequest(int worker);
+    void sendExit(int worker);
     void handleTaskCompleted(int worker);
     std::optional<Task> selectTask(std::vector<Task> &tasks, int worker);
     void sendTaskResponse(const Task& task, int worker);

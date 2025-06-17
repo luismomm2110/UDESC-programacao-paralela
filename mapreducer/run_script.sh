@@ -7,8 +7,8 @@ rm -f mpreducer
 rm -rf ./temp
 rm -rf ./output
 
-# Compile the MPI program
-mpic++ -std=c++17 -o mpreducer mpreducer.cpp coordinator.cpp worker.cpp
+# Compile the MPI + OpenMP program
+mpic++ -std=c++17 -fopenmp -o mpreducer mpreducer.cpp coordinator.cpp worker.cpp
 
 # Run the MPI program with 4 processes
-mpirun -np 4 ./mpreducer 
+mpirun -np 4 ./mpreducer

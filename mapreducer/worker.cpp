@@ -1,5 +1,6 @@
 #include "worker.hpp"
 #include "task.hpp"
+#include "logger.hpp"
 
 const int COORDINATOR = 0;
 
@@ -12,8 +13,7 @@ int Worker::getNumReducers() const { return nReducers; }
 void Worker::run() {
     while (true) {
         Task task = requestTask();
-        std::cout << "Received task " << task.type << " " << " " << task.file << " id: " << task.workerId << " index: " << task.index << std::endl; 
-
+        Logger::logln("Received task ", task.type, " ", " ", task.file, " id: ", task.workerId, " index: ", task.index);
 
         if (task.type == Task::Type::MAP) {
             std::ifstream file(task.file);
@@ -27,56 +27,80 @@ void Worker::run() {
             // sleep 200 ms
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
+
+        if (task.type == Task::Type::EXIT) {
+            Logger::logln("Worker ", id, " received exit message");
+            break;
+        }
     }
 }
 
 void Worker::processMapTask(std::ifstream &file, Task task) {
     std::string line;
     std::map<std::string, std::vector<std::string>> intermediate;
-    // Removendo o conceito de buffer fixo e usando vetores dinâmicos
     std::vector<std::vector<std::string>> reducerData(nReducers);
 
-    // Lê o arquivo linha por linha
+    std::vector<std::string> lines;
     while (std::getline(file, line)) {
-        std::istringstream iss(line);
+        lines.push_back(line);
+    }
+
+    const int numThreads = std::thread::hardware_concurrency();
+    std::vector<std::map<std::string, std::vector<std::string>>> threadIntermediates(numThreads);
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < lines.size(); ++i) {
+        int threadId = omp_get_thread_num();
+        std::istringstream iss(lines[i]);
         std::string word;
 
-        // Processa cada palavra da linha
         while (iss >> word) {
-            // Converte para minúsculas
             std::transform(word.begin(), word.end(), word.begin(), ::tolower);
 
-            // Remove pontuação
             word.erase(std::remove_if(word.begin(), word.end(), ::ispunct), word.end());
 
             if (!word.empty()) {
-                // Adiciona ao mapa intermediário
-                intermediate[word].push_back(std::to_string(task.index));
+                threadIntermediates[threadId][word].push_back(std::to_string(task.index));
             }
         }
     }
 
-    // Distribui as palavras pelos reducers
-    for (const auto &pair : intermediate) {
-        const std::string &word = pair.first;
-        const std::vector<std::string> &values = pair.second;
-
-        size_t hash = std::hash<std::string>{}(word) % nReducers;
-
-        for (const auto &value : values) {
-            reducerData[hash].push_back(word + " " + value);
+    for (const auto& threadMap : threadIntermediates) {
+        for (const auto& pair : threadMap) {
+            const std::string& word = pair.first;
+            const std::vector<std::string>& values = pair.second;
+            
+            intermediate[word].insert(intermediate[word].end(), values.begin(), values.end());
         }
     }
 
-    // Garante existência da pasta temporária
+    std::vector<std::pair<std::string, std::vector<std::string>>> pairs;
+    for (const auto& pair : intermediate) {
+        pairs.push_back(pair);
+    }
+    
+    #pragma omp parallel for
+    for (size_t i = 0; i < pairs.size(); ++i) {
+        const std::string& word = pairs[i].first;
+        const std::vector<std::string>& values = pairs[i].second;
+        size_t hash = std::hash<std::string>{}(word) % nReducers;
+
+        #pragma omp critical
+        {
+            for (const auto& value : values) {
+                reducerData[hash].push_back(word + " " + value);
+            }
+        }
+    }
+
     std::filesystem::create_directory("./temp");
 
-    // Escreve buffers para arquivos específicos de cada reducer
+    #pragma omp parallel for
     for (int i = 0; i < nReducers; i++) {
         std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
 
-        for (const auto &data : reducerData[i]) {
+        for (const auto& data : reducerData[i]) {
             bufferOut << data << "\n";
         }
 
@@ -91,7 +115,6 @@ void Worker::processReduceTask(Task task) {
     std::map<std::string, std::vector<std::string>> kv_store;
 
     auto files = std::vector<std::string>();
-    // read all files with intermediate-taskIndex-anything.txt
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
         auto filename = entry.path().filename().string();
         if (filename.find("intermediate-") != std::string::npos && 
@@ -99,22 +122,32 @@ void Worker::processReduceTask(Task task) {
             files.push_back(entry.path().string());
         }
     }
-    std::cout << "Files: " << files.size() << std::endl;
 
-    for (const auto &file: files) {
-        std::ifstream inFile(file);
+    #pragma omp parallel for
+    for (size_t i = 0; i < files.size(); ++i) {
+        std::map<std::string, std::vector<std::string>> local_kv_store;
+        std::ifstream inFile(files[i]);
         std::string line;
+        
         while (std::getline(inFile, line)) {
-            // split line by space
             std::istringstream iss(line);
             std::string word;
             std::string value;
             iss >> word >> value;
-            // adiciona para o kv store, aumentando o valor de cada chave se já existir
-            if (kv_store.find(word) != kv_store.end()) {
-                kv_store[word].push_back(value);
-            } else {
-                kv_store[word] = {value};
+            local_kv_store[word].push_back(value);
+        }
+        
+        #pragma omp critical
+        {
+            for (const auto& pair : local_kv_store) {
+                const std::string& word = pair.first;
+                const std::vector<std::string>& values = pair.second;
+                
+                if (kv_store.find(word) != kv_store.end()) {
+                    kv_store[word].insert(kv_store[word].end(), values.begin(), values.end());
+                } else {
+                    kv_store[word] = values;
+                }
             }
         }
     }
@@ -140,15 +173,13 @@ void Worker::notifyTaskCompleted(Task task) {
     MPI_Send(&taskTypeValue, 1, MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD);
     MPI_Send(&task.index, 1, MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD);
     MPI_Send(&task.workerId, 1, MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD);
-    std::cout << "Notified task completed:  type value: " << taskTypeValue << "  task: " << task.index << " worker: " << task.workerId << std::endl;
+    Logger::logln("Notified task completed:  type value: ", taskTypeValue, "  task: ", task.index, " worker: ", task.workerId);
 }
 
 Task Worker::requestTask() {
-    // Send task request to coordinator
     MessageType msgType = MessageType::TASK_REQUEST;
     MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD);
     
-    // Receive response type
     MessageType responseType;
     MPI_Recv(&responseType, sizeof(MessageType), MPI_BYTE, COORDINATOR, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
@@ -162,12 +193,10 @@ Task Worker::requestTask() {
         };
     }
     
-    // Receive task details
     int status, index, id;
     MPI_Recv(&status, sizeof(int), MPI_INT, COORDINATOR, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(&index, sizeof(int), MPI_INT, COORDINATOR, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
-    // Receive file name
     int fileNameLength;
     MPI_Recv(&fileNameLength, 1, MPI_INT, COORDINATOR, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     char* fileCharArray = new char[fileNameLength];
@@ -178,7 +207,6 @@ Task Worker::requestTask() {
     MPI_Recv(&id, sizeof(int), MPI_INT, COORDINATOR, 5, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     int taskType;
     MPI_Recv(&taskType, sizeof(int), MPI_INT, COORDINATOR, 6, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    std::cout << "Received task type: " << taskType << std::endl;
     return Task{
         .status = static_cast<Task::Status>(status),
         .type = static_cast<Task::Type>(taskType),

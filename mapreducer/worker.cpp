@@ -37,7 +37,7 @@ void Worker::run() {
 
 void Worker::processMapTask(std::ifstream &file, Task task) {
     std::string line;
-    std::map<std::string, std::vector<std::string>> intermediate;
+    std::unordered_map<std::string, std::vector<std::string>> intermediate;
     std::vector<std::vector<std::string>> reducerData(nReducers);
 
     std::vector<std::string> lines;
@@ -46,7 +46,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
     }
 
     const int numThreads = std::thread::hardware_concurrency();
-    std::vector<std::map<std::string, std::vector<std::string>>> threadIntermediates(numThreads);
+    std::vector<std::unordered_map<std::string, std::vector<std::string>>> threadIntermediates(numThreads);
     
     #pragma omp parallel for
     for (size_t i = 0; i < lines.size(); ++i) {
@@ -112,7 +112,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 
 void Worker::processReduceTask(Task task) {
     // cria chave e valor para cada par de palavra
-    std::map<std::string, std::vector<std::string>> kv_store;
+    std::unordered_map<std::string, std::vector<std::string>> kv_store;
 
     auto files = std::vector<std::string>();
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
@@ -125,7 +125,7 @@ void Worker::processReduceTask(Task task) {
 
     #pragma omp parallel for
     for (size_t i = 0; i < files.size(); ++i) {
-        std::map<std::string, std::vector<std::string>> local_kv_store;
+        std::unordered_map<std::string, std::vector<std::string>> local_kv_store;
         std::ifstream inFile(files[i]);
         std::string line;
         
@@ -155,7 +155,7 @@ void Worker::processReduceTask(Task task) {
     createReduceOutput(task, kv_store);
 }
 
-void Worker::createReduceOutput(Task task, std::map<std::string, std::vector<std::string>> &kv_store) {
+void Worker::createReduceOutput(Task task, std::unordered_map<std::string, std::vector<std::string>> &kv_store) {
     std::filesystem::create_directory("./output");
     std::ofstream outputFile("./output/reduce-" + std::to_string(task.index) + ".txt");
     for (const auto &pair: kv_store) {

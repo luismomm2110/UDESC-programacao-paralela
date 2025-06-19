@@ -5,14 +5,13 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <sstream>
 #include <algorithm>
 #include <filesystem>
 #include <thread>
 #include <chrono>
-#include <unordered_map>
 #include "task.hpp"
 
 class Worker {
@@ -28,7 +27,6 @@ public:
     Task requestTask();
 
 private:
-    void createReduceOutput(Task task, std::map<std::string, std::vector<std::string>> &kv_store);
     void createReduceOutput(Task task, std::unordered_map<std::string, std::vector<std::string>> &kv_store);
     void notifyTaskCompleted(Task task);
     int id;          // Identificador único do worker

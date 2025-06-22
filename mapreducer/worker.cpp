@@ -24,10 +24,11 @@ void Worker::run() {
         }
 
         if (task.type == Task::Type::NO_TASKS) {
-            // sleep 200 ms
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            // dorme 50 milissegundos para evitar busy waiting
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
+        // Se for
         if (task.type == Task::Type::EXIT) {
             Logger::logln("Worker ", id, " received exit message");
             break;
@@ -45,10 +46,10 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
         lines.push_back(line);
     }
 
-    const int numThreads = std::thread::hardware_concurrency();
+    const int numThreads = omp_get_max_threads();
     std::vector<std::unordered_map<std::string, std::vector<std::string>>> threadIntermediates(numThreads);
-    
-    #pragma omp parallel for
+
+    #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < lines.size(); ++i) {
         int threadId = omp_get_thread_num();
         std::istringstream iss(lines[i]);
@@ -60,7 +61,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
             word.erase(std::remove_if(word.begin(), word.end(), ::ispunct), word.end());
 
             if (!word.empty()) {
-                threadIntermediates[threadId][word].push_back(std::to_string(task.index));
+                threadIntermediates[threadId][word].push_back("1");
             }
         }
     }
@@ -69,7 +70,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
         for (const auto& pair : threadMap) {
             const std::string& word = pair.first;
             const std::vector<std::string>& values = pair.second;
-            
+
             intermediate[word].insert(intermediate[word].end(), values.begin(), values.end());
         }
     }
@@ -78,24 +79,28 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
     for (const auto& pair : intermediate) {
         pairs.push_back(pair);
     }
-    
-    #pragma omp parallel for
+
+    std::vector<std::vector<std::vector<std::string>>> threadReducerData(numThreads, std::vector<std::vector<std::string>>(nReducers));
+
+    #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < pairs.size(); ++i) {
+        int threadId = omp_get_thread_num();
         const std::string& word = pairs[i].first;
         const std::vector<std::string>& values = pairs[i].second;
         size_t hash = std::hash<std::string>{}(word) % nReducers;
-
-        #pragma omp critical
-        {
-            for (const auto& value : values) {
-                reducerData[hash].push_back(word + " " + value);
-            }
+        for (const auto& value : values) {
+            threadReducerData[threadId][hash].push_back(word + " " + value);
         }
     }
 
-    std::filesystem::create_directory("./temp");
+    for (int t = 0; t < numThreads; ++t) {
+        for (int r = 0; r < nReducers; ++r) {
+            reducerData[r].insert(reducerData[r].end(), threadReducerData[t][r].begin(), threadReducerData[t][r].end());
+        }
+    }
 
-    #pragma omp parallel for
+
+    #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < nReducers; i++) {
         std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
@@ -111,45 +116,45 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 }
 
 void Worker::processReduceTask(Task task) {
-    // cria chave e valor para cada par de palavra
-    std::unordered_map<std::string, std::vector<std::string>> kv_store;
+    std::vector<std::pair<std::string, std::string>> intermediate_data;
 
     auto files = std::vector<std::string>();
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
         auto filename = entry.path().filename().string();
-        if (filename.find("intermediate-") != std::string::npos && 
+        if (filename.find("intermediate-") != std::string::npos &&
             filename.find("-" + std::to_string(task.index) + ".txt") != std::string::npos) {
             files.push_back(entry.path().string());
         }
     }
 
-    #pragma omp parallel for
+    // le os arquivos intermediários e armazena os pares de chave-valor
+    #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < files.size(); ++i) {
-        std::unordered_map<std::string, std::vector<std::string>> local_kv_store;
         std::ifstream inFile(files[i]);
         std::string line;
-        
-        while (std::getline(inFile, line)) {
-            std::istringstream iss(line);
-            std::string word;
-            std::string value;
-            iss >> word >> value;
-            local_kv_store[word].push_back(value);
-        }
-        
+
         #pragma omp critical
         {
-            for (const auto& pair : local_kv_store) {
-                const std::string& word = pair.first;
-                const std::vector<std::string>& values = pair.second;
-                
-                if (kv_store.find(word) != kv_store.end()) {
-                    kv_store[word].insert(kv_store[word].end(), values.begin(), values.end());
-                } else {
-                    kv_store[word] = values;
-                }
+            while (std::getline(inFile, line)) {
+                std::istringstream iss(line);
+                std::string word;
+                std::string value;
+                iss >> word >> value;
+                intermediate_data.push_back({word, value});
             }
         }
+    }
+
+    // Ordena as pares de chave-valor
+    std::sort(intermediate_data.begin(), intermediate_data.end());
+
+    // agrupa os dados intermediários em um mapa de chave-valor
+    std::unordered_map<std::string, std::vector<std::string>> kv_store;
+
+    for (const auto& pair : intermediate_data) {
+        const std::string& word = pair.first;
+        const std::string& value = pair.second;
+        kv_store[word].push_back(value);
     }
 
     createReduceOutput(task, kv_store);

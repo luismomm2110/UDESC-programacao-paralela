@@ -24,7 +24,7 @@ void Worker::run() {
         }
 
         if (task.type == Task::Type::NO_TASKS) {
-            // sleep 50 ms
+            // dorme 50 ms para evitar busy waiting
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
@@ -115,7 +115,6 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 }
 
 void Worker::processReduceTask(Task task) {
-    // Read all intermediate data and store as key-value pairs
     std::vector<std::pair<std::string, std::string>> intermediate_data;
 
     auto files = std::vector<std::string>();
@@ -127,7 +126,6 @@ void Worker::processReduceTask(Task task) {
         }
     }
 
-    // Read all intermediate data into a vector of pairs
     #pragma omp parallel for
     for (size_t i = 0; i < files.size(); ++i) {
         std::ifstream inFile(files[i]);
@@ -145,10 +143,8 @@ void Worker::processReduceTask(Task task) {
         }
     }
 
-    // Sort the intermediate data by keys as per MapReduce paper
     std::sort(intermediate_data.begin(), intermediate_data.end());
 
-    // Group sorted data by keys
     std::unordered_map<std::string, std::vector<std::string>> kv_store;
     
     for (const auto& pair : intermediate_data) {

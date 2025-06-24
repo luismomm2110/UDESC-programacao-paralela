@@ -17,7 +17,6 @@ Coordinator::Coordinator(int nReduce, int worldSize)
     activeWorkers = worldSize - 1; // Todos os workers exceto o coordenador
     completedTasks = 0;
     
-    // Track completed map tasks per reducer
     completedMapTasksPerReducer.resize(nReduce, 0);
     totalMapTasks = this->mapTasks.size();
 }
@@ -41,7 +40,7 @@ void Coordinator::run() {
 }
 
 void Coordinator::handleTaskRequest(int worker) {
-    // Try to assign MAP tasks first
+    // primeiro verifica se o worker é o coordenador
     if (numberMapTasks > 0) {
         auto task = selectTask(mapTasks, worker);
         if (task.has_value()) {
@@ -50,7 +49,7 @@ void Coordinator::handleTaskRequest(int worker) {
         }
     }
     
-    // Check if we can start REDUCE tasks (pipeline approach)
+    // checa se há tarefas de redução disponíveis
     if (numberReduceTasks > 0 && canStartReduceTasks()) {
         auto task = selectTask(reduceTasks, worker);
         if (task.has_value()) {
@@ -59,7 +58,7 @@ void Coordinator::handleTaskRequest(int worker) {
         }
     }
     
-    // If no tasks available, send no more tasks
+    // se acabou as tarefas de mapa e não há tarefas de redução disponíveis, envia mensagem de saída
     if (numberMapTasks == 0 && numberReduceTasks == 0) {
         sendExit(worker);
     } else {
@@ -68,8 +67,6 @@ void Coordinator::handleTaskRequest(int worker) {
 }
 
 bool Coordinator::canStartReduceTasks() {
-    // Start reduce tasks when at least 50% of map tasks are completed
-    // This creates a pipeline effect
     int completedMaps = totalMapTasks - numberMapTasks;
     return completedMaps >= (totalMapTasks / 2);
 }
@@ -124,15 +121,12 @@ std::optional<Task> Coordinator::selectTask(std::vector<Task> &tasks, int worker
 
 void Coordinator::sendTaskResponse(const Task &task, int worker) {
 
-    // Send message type first
     MessageType msgType = MessageType::TASK_RESPONSE;
     MPI_Send(&msgType, sizeof(MessageType), MPI_BYTE, worker, 0, MPI_COMM_WORLD);
 
-    // Send task status
     MPI_Send(&task.status, sizeof(int), MPI_INT, worker, 1, MPI_COMM_WORLD);
     MPI_Send(&task.index, sizeof(int), MPI_INT, worker, 2, MPI_COMM_WORLD);
 
-    // Send file name
     int fileNameLength = task.file.size() + 1;
     MPI_Send(&fileNameLength, 1, MPI_INT, worker, 3, MPI_COMM_WORLD);
     MPI_Send(task.file.c_str(), fileNameLength, MPI_CHAR, worker, 4, MPI_COMM_WORLD);

@@ -30,7 +30,6 @@ private:
     int activeWorkers;
     int completedTasks;
     
-    // Pipeline tracking
     std::vector<int> completedMapTasksPerReducer;
     int totalMapTasks;
 }; 

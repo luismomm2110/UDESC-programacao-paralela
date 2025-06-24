@@ -34,7 +34,8 @@ export OMP_NUM_THREADS=4
 
 
 # Run the MPI program with 4 processes
-mpirun -np 4 --machinefile hosts.txt --mca btl_tcp_if_include 10.20.221.0/24 ./mpreducer 
+export OMP_NUM_THREADS=4
+mpirun -np 4 --machinefile hosts.txt --mca btl_tcp_if_include 10.20.221.0/24 ./mpreducer
 EXIT_CODE=$?
 
 exit $EXIT_CODE

@@ -24,11 +24,10 @@ void Worker::run() {
         }
 
         if (task.type == Task::Type::NO_TASKS) {
-            // dorme 50 milissegundos para evitar busy waiting
+            // sleep 50 ms
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
-        // Se for
         if (task.type == Task::Type::EXIT) {
             Logger::logln("Worker ", id, " received exit message");
             break;
@@ -48,8 +47,8 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 
     const int numThreads = omp_get_max_threads();
     std::vector<std::unordered_map<std::string, std::vector<std::string>>> threadIntermediates(numThreads);
-
-    #pragma omp parallel for schedule(dynamic)
+    
+    #pragma omp parallel for
     for (size_t i = 0; i < lines.size(); ++i) {
         int threadId = omp_get_thread_num();
         std::istringstream iss(lines[i]);
@@ -70,7 +69,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
         for (const auto& pair : threadMap) {
             const std::string& word = pair.first;
             const std::vector<std::string>& values = pair.second;
-
+            
             intermediate[word].insert(intermediate[word].end(), values.begin(), values.end());
         }
     }
@@ -79,10 +78,10 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
     for (const auto& pair : intermediate) {
         pairs.push_back(pair);
     }
-
+    
     std::vector<std::vector<std::vector<std::string>>> threadReducerData(numThreads, std::vector<std::vector<std::string>>(nReducers));
-
-    #pragma omp parallel for schedule(dynamic)
+    
+    #pragma omp parallel for
     for (size_t i = 0; i < pairs.size(); ++i) {
         int threadId = omp_get_thread_num();
         const std::string& word = pairs[i].first;
@@ -100,7 +99,7 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
     }
 
 
-    #pragma omp parallel for schedule(dynamic)
+    #pragma omp parallel for
     for (int i = 0; i < nReducers; i++) {
         std::string bufferFile = "./temp/intermediate-" + std::to_string(task.index) + "-" + std::to_string(i) + ".txt";
         std::ofstream bufferOut(bufferFile);
@@ -116,23 +115,24 @@ void Worker::processMapTask(std::ifstream &file, Task task) {
 }
 
 void Worker::processReduceTask(Task task) {
+    // Read all intermediate data and store as key-value pairs
     std::vector<std::pair<std::string, std::string>> intermediate_data;
 
     auto files = std::vector<std::string>();
     for (const auto &entry: std::filesystem::directory_iterator("./temp")) {
         auto filename = entry.path().filename().string();
-        if (filename.find("intermediate-") != std::string::npos &&
+        if (filename.find("intermediate-") != std::string::npos && 
             filename.find("-" + std::to_string(task.index) + ".txt") != std::string::npos) {
             files.push_back(entry.path().string());
         }
     }
 
-    // le os arquivos intermediários e armazena os pares de chave-valor
-    #pragma omp parallel for schedule(dynamic)
+    // Read all intermediate data into a vector of pairs
+    #pragma omp parallel for
     for (size_t i = 0; i < files.size(); ++i) {
         std::ifstream inFile(files[i]);
         std::string line;
-
+        
         #pragma omp critical
         {
             while (std::getline(inFile, line)) {
@@ -145,12 +145,12 @@ void Worker::processReduceTask(Task task) {
         }
     }
 
-    // Ordena as pares de chave-valor
+    // Sort the intermediate data by keys as per MapReduce paper
     std::sort(intermediate_data.begin(), intermediate_data.end());
 
-    // agrupa os dados intermediários em um mapa de chave-valor
+    // Group sorted data by keys
     std::unordered_map<std::string, std::vector<std::string>> kv_store;
-
+    
     for (const auto& pair : intermediate_data) {
         const std::string& word = pair.first;
         const std::string& value = pair.second;

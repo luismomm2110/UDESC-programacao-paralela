@@ -19,6 +19,7 @@ private:
     void sendTaskResponse(const Task& task, int worker);
     void sendNoMoreTasks(int worker);
     std::pair<std::vector<Task>, std::vector<Task> > initializeTasks(int nReduce);
+    bool canStartReduceTasks();
 
     int numberReduce;
     int worldSize;
@@ -28,4 +29,8 @@ private:
     std::vector<Task> reduceTasks;
     int activeWorkers;
     int completedTasks;
+    
+    // Pipeline tracking
+    std::vector<int> completedMapTasksPerReducer;
+    int totalMapTasks;
 }; 

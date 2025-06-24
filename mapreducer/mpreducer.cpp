@@ -37,10 +37,6 @@ std::ostream &operator<<(std::ostream &os, const Task::Status &status) {
 }
 
 int main(int argc, char **argv) {
-    if (std::filesystem::exists("./temp")) {
-        std::filesystem::remove_all("./temp");
-    }
-    std::filesystem::create_directory("./temp");
     
     MPI_Init(&argc, &argv);
 

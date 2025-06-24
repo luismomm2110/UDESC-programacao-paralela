@@ -14,9 +14,12 @@ Coordinator::Coordinator(int nReduce, int worldSize)
     this->numberMapTasks = this->mapTasks.size();
     this->numberReduceTasks = this->reduceTasks.size();
 
-    // Limpa e cria o diretório temporário
     activeWorkers = worldSize - 1; // Todos os workers exceto o coordenador
     completedTasks = 0;
+    
+    // Track completed map tasks per reducer
+    completedMapTasksPerReducer.resize(nReduce, 0);
+    totalMapTasks = this->mapTasks.size();
 }
 
 void Coordinator::run() {
@@ -38,23 +41,37 @@ void Coordinator::run() {
 }
 
 void Coordinator::handleTaskRequest(int worker) {
+    // Try to assign MAP tasks first
     if (numberMapTasks > 0) {
         auto task = selectTask(mapTasks, worker);
         if (task.has_value()) {
             sendTaskResponse(task.value(), worker);
-        } else {
-            sendNoMoreTasks(worker);
+            return;
         }
-    } else if (numberReduceTasks > 0) {
+    }
+    
+    // Check if we can start REDUCE tasks (pipeline approach)
+    if (numberReduceTasks > 0 && canStartReduceTasks()) {
         auto task = selectTask(reduceTasks, worker);
         if (task.has_value()) {
             sendTaskResponse(task.value(), worker);
-        } else {
-            sendNoMoreTasks(worker);
+            return;
         }
-    } else {
-        sendExit(worker);
     }
+    
+    // If no tasks available, send no more tasks
+    if (numberMapTasks == 0 && numberReduceTasks == 0) {
+        sendExit(worker);
+    } else {
+        sendNoMoreTasks(worker);
+    }
+}
+
+bool Coordinator::canStartReduceTasks() {
+    // Start reduce tasks when at least 50% of map tasks are completed
+    // This creates a pipeline effect
+    int completedMaps = totalMapTasks - numberMapTasks;
+    return completedMaps >= (totalMapTasks / 2);
 }
 
 void Coordinator::sendExit(int worker) {
@@ -106,7 +123,6 @@ std::optional<Task> Coordinator::selectTask(std::vector<Task> &tasks, int worker
 }
 
 void Coordinator::sendTaskResponse(const Task &task, int worker) {
-    Logger::logln("Sending task ", task.type, " index: ", task.index, " file: ", task.file, " id: ", task.workerId);
 
     // Send message type first
     MessageType msgType = MessageType::TASK_RESPONSE;

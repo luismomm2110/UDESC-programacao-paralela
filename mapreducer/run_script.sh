@@ -30,9 +30,11 @@ rm -f mpreducer
 # Remove temp directory if it exists
 
 mpic++ -std=c++17 -O3 -fopenmp -o mpreducer mpreducer.cpp coordinator.cpp worker.cpp
+export OMP_NUM_THREADS=4
+
 
 # Run the MPI program with 4 processes
-mpirun --machinefile hosts.txt  --mca btl_tcp_if_include 10.20.221.0/24 mpreducer
+mpirun -np 4 --machinefile hosts.txt --mca btl_tcp_if_include 10.20.221.0/24 ./mpreducer 
+EXIT_CODE=$?
 
-
-exit $EXIT_CODE                # propaga código de saída do MPI
+exit $EXIT_CODE
